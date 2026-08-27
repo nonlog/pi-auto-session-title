@@ -1,0 +1,52 @@
+{
+  "name": "@nonlog/pi-auto-session-title",
+  "version": "0.1.0",
+  "description": "Reliable automatic Pi session titles using Pi's native model registry and session naming API.",
+  "type": "module",
+  "license": "MIT",
+  "author": "nonlog",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "session-title",
+    "session-naming"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nonlog/pi-auto-session-title.git"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:unit": "tsx tests/title-utils.test.ts && tsx tests/extension-integration.test.ts",
+    "test": "npm run typecheck && npm run test:unit"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/auto-session-title.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "files": [
+    "extensions/",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ]
+}
