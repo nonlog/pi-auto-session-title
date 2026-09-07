@@ -13,7 +13,8 @@ This project intentionally avoids `completeSimple()`. It was created after a cus
 - Re-checks the active session and current name after the model request, preventing session-switch and manual-rename races.
 - Ignores trivial prompts such as `继续`, `continue`, `ok`, and `next` until a substantive request exists.
 - Extracts normalized `text` and `output_text` response shapes.
-- Falls back silently to a local sanitized title when the model fails or returns no usable text.
+- If a configured title model times out, immediately retries once with the current session model at its lowest practical thinking level; if that also fails, falls back to a local sanitized title.
+- Non-timeout primary failures still honor `retries` before switching to the current session model.
 - Removes URLs, absolute paths, and common token-like strings from generated/fallback titles.
 - Provides `/retitle` to explicitly regenerate the current title.
 
@@ -26,7 +27,7 @@ For compatibility with `pi-session-naming`, the extension reads these existing k
   "session": {
     "titleGeneration": {
       "enabled": true,
-      "model": "www/gpt-5.6-luna:minimal",
+      "model": "www/gpt-5.6-luna:low",
       "retries": 2,
       "maxLength": 64,
       "timeoutMs": 12000
@@ -45,7 +46,7 @@ Environment variables override settings:
 - `PI_AUTO_TITLE_TIMEOUT_MS` (default: `12000` per attempt)
 - `PI_AUTO_TITLE_DEBUG`
 
-`model` accepts `provider/model[:thinking]`. Use `current` to title with the session's current model.
+`model` accepts `provider/model[:thinking]`. Use `current` to title with the session's current model. When a different configured model fails, the fallback uses the current session model; reasoning-capable models prefer the lowest advertised level, defaulting to `low` when provider metadata is incomplete.
 
 ## Local development
 

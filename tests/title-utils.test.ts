@@ -29,6 +29,7 @@ assert.equal(extractAssistantText({ content: [{ type: "thinking", thinking: "sec
 assert.equal(sanitizeTitle('标题："修复 Pi 自动标题。"'), "修复 Pi 自动标题");
 assert.equal(sanitizeTitle("Title: Fix https://example.com D:\\secret\\file.ts naming"), "Fix naming");
 assert.equal(sanitizeTitle(""), "");
+assert.equal(sanitizeTitle("读取 Codex 会话 11111111-2222-3333-4444-555555555555 transcript"), "读取 Codex 会话 transcript");
 
 assert.equal(isTrivialPrompt("继续"), true);
 assert.equal(isTrivialPrompt("continue"), true);

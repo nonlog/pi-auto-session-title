@@ -113,6 +113,7 @@ export function sanitizeTitle(raw: string, maxChars = 64): string {
   title = title.replace(/(?:^|\s)\/[\w./~-]{4,}/g, " ");
   title = title.replace(/\b(?:sk|pk|ghp|github_pat|xox[baprs])-?[A-Za-z0-9_-]{12,}\b/gi, "");
   title = title.replace(/\bBearer\s+[A-Za-z0-9._~+/-]{12,}=*\b/gi, "");
+  title = title.replace(/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}/gi, "");
   title = title.replace(/\s+/g, " ").trim();
   title = title.replace(/[.。!！?？,，;；:：\-–—]+$/g, "").trim();
 

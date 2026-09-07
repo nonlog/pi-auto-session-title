@@ -4,8 +4,14 @@ import { join } from "node:path";
 import autoSessionTitle from "../extensions/auto-session-title.js";
 
 type Handler = (event: any, ctx: any) => any;
+type CompleteStep = unknown | Error | "deferred";
 
-function makeHarness(options?: { response?: unknown; completeError?: Error; deferred?: boolean }) {
+function makeHarness(options?: {
+  response?: unknown;
+  completeError?: Error;
+  deferred?: boolean;
+  completeSequence?: CompleteStep[];
+}) {
   const handlers = new Map<string, Handler[]>();
   const commands = new Map<string, { handler: (args: string, ctx: any) => Promise<void> }>();
   let name: string | undefined;
@@ -34,23 +40,32 @@ function makeHarness(options?: { response?: unknown; completeError?: Error; defe
   const entries: any[] = [];
   let sessionId = "session-a";
   const notifications: Array<[string, string | undefined]> = [];
+  const defaultModel = {
+    provider: "www",
+    id: "deepseek-v4-flash",
+    reasoning: true,
+    thinkingLevelMap: { minimal: "minimal", low: "low", medium: "medium", high: "high" },
+  };
   const ctx = {
     sessionManager: {
       getSessionId: () => sessionId,
       getEntries: () => entries,
     },
     modelRegistry: {
-      find: () => ({ provider: "www", id: "deepseek-v4-flash" }),
+      find: (provider: string, id: string) => ({ ...defaultModel, provider, id }),
       complete: async () => {
         completeCalls++;
-        if (options?.completeError) throw options.completeError;
-        if (options?.deferred) {
+        const step = options?.completeSequence?.[completeCalls - 1];
+        if (step instanceof Error) throw step;
+        if (step === "deferred" || (options?.deferred && !options.completeSequence)) {
           return await new Promise((resolve) => { deferredResolve = resolve; });
         }
+        if (step !== undefined) return step;
+        if (options?.completeError) throw options.completeError;
         return options?.response ?? { content: [{ type: "text", text: "修复 Pi 自动标题" }] };
       },
     },
-    model: { provider: "www", id: "deepseek-v4-flash" },
+    model: defaultModel,
     thinkingLevel: "minimal",
     ui: {
       notify(message: string, type?: string) {
@@ -179,11 +194,24 @@ process.env.PI_AUTO_TITLE_TIMEOUT_MS = "100";
   await h.emit("session_start", { reason: "new" });
   h.entries.push({ type: "message", message: { role: "user", content: "修复标题模型永久挂起问题" } });
   await h.emit("before_agent_start", { prompt: "修复标题模型永久挂起问题" });
-  await new Promise((resolve) => setTimeout(resolve, 260));
+  await new Promise((resolve) => setTimeout(resolve, 160));
   assert.equal(h.name, "修复标题模型永久挂起问题");
+  assert.equal(h.completeCalls, 1);
+}
+
+process.env.PI_AUTO_TITLE_MODEL = "www/gpt-5.6-luna:low";
+{
+  const h = makeHarness({
+    completeSequence: ["deferred", { content: [{ type: "text", text: "使用当前模型生成标题" }] }],
+  });
+  await h.emit("session_start", { reason: "new" });
+  h.entries.push({ type: "message", message: { role: "user", content: "修复标题模型超时后的备用模型逻辑" } });
+  await h.emit("before_agent_start", { prompt: "修复标题模型超时后的备用模型逻辑" });
+  await new Promise((resolve) => setTimeout(resolve, 180));
+  assert.equal(h.name, "使用当前模型生成标题");
   assert.equal(h.completeCalls, 2);
 }
+
+process.env.PI_AUTO_TITLE_MODEL = "current";
 delete process.env.PI_AUTO_TITLE_TIMEOUT_MS;
 console.log("extension integration tests passed");
-
-
