@@ -1,6 +1,6 @@
 {
   "name": "@nonlog/pi-auto-session-title",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Reliable automatic Pi session titles using Pi's native model registry and session naming API.",
   "type": "module",
   "license": "MIT",

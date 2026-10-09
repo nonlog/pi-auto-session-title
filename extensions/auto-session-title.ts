@@ -135,7 +135,7 @@ function resolvePrimaryModel(ctx: ExtensionContext, config: AutoTitleConfig): Re
   if (!ctx.model) return undefined;
   return {
     model: ctx.model,
-    thinking: ctx.thinkingLevel as ThinkingLevel | undefined,
+    thinking: currentModelTitleThinking(ctx.model as ModelWithThinkingMetadata),
     label: `${ctx.model.provider}/${ctx.model.id}`,
   };
 }
@@ -158,6 +158,14 @@ function fallbackThinkingCandidates(model: ModelWithThinkingMetadata): Array<Thi
   }
 
   return candidates.length > 0 ? candidates : [undefined];
+}
+
+function currentModelTitleThinking(model: ModelWithThinkingMetadata): ThinkingLevel | undefined {
+  const candidates = fallbackThinkingCandidates(model);
+  // Keep auto-title requests cheap even when the conversation itself uses
+  // high/max reasoning. Prefer low over minimal: some custom providers advertise
+  // minimal through metadata but reject it at request time.
+  return candidates.includes("low") ? "low" : candidates[0];
 }
 
 function sameTarget(a: ResolvedTitleModel | undefined, b: ResolvedTitleModel): boolean {

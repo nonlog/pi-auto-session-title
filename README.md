@@ -13,8 +13,9 @@ This project intentionally avoids `completeSimple()`. It was created after a cus
 - Re-checks the active session and current name after the model request, preventing session-switch and manual-rename races.
 - Ignores trivial prompts such as `继续`, `continue`, `ok`, and `next` until a substantive request exists.
 - Extracts normalized `text` and `output_text` response shapes.
-- If a configured title model times out, immediately retries once with the current session model at its lowest practical thinking level; if that also fails, falls back to a local sanitized title.
-- Non-timeout primary failures still honor `retries` before switching to the current session model.
+- By default, generates the title with the **current session model**, without a fixed model/provider. For reasoning models, prefers low thinking for fast titles even when the main conversation uses high/max.
+- If an explicitly configured different title model times out, switches to the session model; if the session model also fails, uses a sanitized local title.
+- Non-timeout primary failures still honor `retries` before trying any available fallback.
 - Removes URLs, absolute paths, and common token-like strings from generated/fallback titles.
 - Provides `/retitle` to explicitly regenerate the current title.
 
@@ -27,7 +28,7 @@ For compatibility with `pi-session-naming`, the extension reads these existing k
   "session": {
     "titleGeneration": {
       "enabled": true,
-      "model": "www/gpt-5.6-luna:low",
+      "model": "current",
       "retries": 2,
       "maxLength": 64,
       "timeoutMs": 12000
@@ -46,7 +47,9 @@ Environment variables override settings:
 - `PI_AUTO_TITLE_TIMEOUT_MS` (default: `12000` per attempt)
 - `PI_AUTO_TITLE_DEBUG`
 
-`model` accepts `provider/model[:thinking]`. Use `current` to title with the session's current model. When a different configured model fails, the fallback uses the current session model; reasoning-capable models prefer the lowest advertised level, defaulting to `low` when provider metadata is incomplete.
+`model` defaults to `current` and follows the active Pi session model on every new title request, including `/retitle`. Reasoning models use their lowest practical thinking level (prefer `low` to avoid providers that incorrectly advertise `minimal`); non-reasoning models do not specify a thinking level. If that model times out or fails, the local heuristic is the final fallback. An explicit `provider/model[:thinking]` still works as an optional override; if it fails, the plugin attempts the current session model.
+
+If you previously configured a fixed title model, replace it with `"model": "current"`. Also remove any `PI_AUTO_TITLE_MODEL` environment override that pins a different model.
 
 ## Local development
 

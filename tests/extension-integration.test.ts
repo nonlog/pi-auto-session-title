@@ -11,12 +11,14 @@ function makeHarness(options?: {
   completeError?: Error;
   deferred?: boolean;
   completeSequence?: CompleteStep[];
+  sessionModel?: { provider: string; id: string; reasoning: boolean; thinkingLevelMap?: Record<string, string | null> };
 }) {
   const handlers = new Map<string, Handler[]>();
   const commands = new Map<string, { handler: (args: string, ctx: any) => Promise<void> }>();
   let name: string | undefined;
   let completeCalls = 0;
   let deferredResolve: ((value: unknown) => void) | undefined;
+  const modelRequests: Array<{ provider: string; id: string; reasoning?: string }> = [];
 
   const pi = {
     on(event: string, handler: Handler) {
@@ -40,7 +42,7 @@ function makeHarness(options?: {
   const entries: any[] = [];
   let sessionId = "session-a";
   const notifications: Array<[string, string | undefined]> = [];
-  const defaultModel = {
+  const defaultModel = options?.sessionModel ?? {
     provider: "www",
     id: "deepseek-v4-flash",
     reasoning: true,
@@ -53,8 +55,9 @@ function makeHarness(options?: {
     },
     modelRegistry: {
       find: (provider: string, id: string) => ({ ...defaultModel, provider, id }),
-      complete: async () => {
+      complete: async (model: any, _context: unknown, callOptions: any) => {
         completeCalls++;
+        modelRequests.push({ provider: model.provider, id: model.id, reasoning: callOptions?.reasoning });
         const step = options?.completeSequence?.[completeCalls - 1];
         if (step instanceof Error) throw step;
         if (step === "deferred" || (options?.deferred && !options.completeSequence)) {
@@ -88,6 +91,7 @@ function makeHarness(options?: {
     get name() { return name; },
     set name(value: string | undefined) { name = value; },
     get completeCalls() { return completeCalls; },
+    get modelRequests() { return modelRequests; },
     setSessionId(value: string) { sessionId = value; },
     resolveDeferred(value: unknown) {
       assert.ok(deferredResolve, "expected deferred model request");
@@ -113,6 +117,36 @@ process.env.PI_AUTO_TITLE_DEBUG = "0";
   await settle();
   assert.equal(h.name, "修复 Pi 自动标题");
   assert.equal(h.completeCalls, 1);
+  // The model metadata may advertise minimal, but title generation defaults to
+  // low because some custom providers reject minimal at request time.
+  assert.deepEqual(h.modelRequests, [{ provider: "www", id: "deepseek-v4-flash", reasoning: "low" }]);
+}
+
+{
+  const h = makeHarness({
+    sessionModel: {
+      provider: "www",
+      id: "gpt-6-sol",
+      reasoning: true,
+      thinkingLevelMap: { low: "low", medium: "medium", high: "high", max: "max" },
+    },
+  });
+  h.ctx.thinkingLevel = "max";
+  await h.emit("session_start", { reason: "new" });
+  await h.emit("before_agent_start", { prompt: "给当前会话自动命名" });
+  await settle();
+  assert.equal(h.name, "修复 Pi 自动标题");
+  assert.deepEqual(h.modelRequests, [{ provider: "www", id: "gpt-6-sol", reasoning: "low" }]);
+}
+
+{
+  const h = makeHarness({
+    sessionModel: { provider: "custom", id: "chat-model", reasoning: false },
+  });
+  await h.emit("session_start", { reason: "new" });
+  await h.emit("before_agent_start", { prompt: "给另一个模型的会话自动命名" });
+  await settle();
+  assert.deepEqual(h.modelRequests, [{ provider: "custom", id: "chat-model", reasoning: undefined }]);
 }
 
 {
@@ -199,7 +233,7 @@ process.env.PI_AUTO_TITLE_TIMEOUT_MS = "100";
   assert.equal(h.completeCalls, 1);
 }
 
-process.env.PI_AUTO_TITLE_MODEL = "www/gpt-5.6-luna:low";
+process.env.PI_AUTO_TITLE_MODEL = "www/title-primary:low";
 {
   const h = makeHarness({
     completeSequence: ["deferred", { content: [{ type: "text", text: "使用当前模型生成标题" }] }],
